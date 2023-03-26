@@ -1,58 +1,76 @@
+import fs from 'fs';
+import path from 'path';
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
 import { OpenAIEmbeddings } from 'langchain/embeddings';
 import { PineconeStore } from 'langchain/vectorstores';
 import { pinecone } from '@/utils/pinecone-client';
 import { PDFLoader } from 'langchain/document_loaders';
-import { PINECONE_INDEX_NAME, PINECONE_NAME_SPACE } from '@/config/pinecone';
-
-/* Name of directory to retrieve files from. You can change this as required */
-const filePath = 'docs/MorseVsFrederick.pdf';
+import { PINECONE_INDEX_NAME } from '@/config/pinecone';
+import { loadDocDirectories } from './utils';
 
 export const run = async () => {
   try {
-    /*load raw docs from the pdf file in the directory */
-    const loader = new PDFLoader(filePath);
-    // const loader = new PDFLoader(filePath);
-    const rawDocs = await loader.load();
+    const directories = loadDocDirectories();
+    console.log('directories: ', directories);
 
-    console.log(rawDocs);
+    for (const directory of directories) {
+      /* Load all PDF files in the directory */
+      const files = fs
+        .readdirSync(directory)
+        .filter((file) => path.extname(file) === '.pdf');
 
-    /* Split text into chunks */
-    const textSplitter = new RecursiveCharacterTextSplitter({
-      chunkSize: 1000,
-      chunkOverlap: 200,
-    });
+      for (const file of files) {
+        console.log(`Processing file: ${file}`);
 
-    const docs = await textSplitter.splitDocuments(rawDocs);
-    console.log('split docs', docs);
+        /* Load raw docs from the pdf file */
+        const filePath = path.join(directory, file);
+        const loader = new PDFLoader(filePath);
+        const rawDocs = await loader.load();
 
-    console.log('creating vector store...');
-    /*create and store the embeddings in the vectorStore*/
-    const embeddings = new OpenAIEmbeddings();
-    const index = pinecone.Index(PINECONE_INDEX_NAME); //change to your own index name
+        console.log(rawDocs);
 
-    //embed the PDF documents
+        /* Split text into chunks */
+        const textSplitter = new RecursiveCharacterTextSplitter({
+          chunkSize: 1000,
+          chunkOverlap: 200,
+        });
 
-    /* Pinecone recommends a limit of 100 vectors per upsert request to avoid errors*/
-    const chunkSize = 50;
-    for (let i = 0; i < docs.length; i += chunkSize) {
-      const chunk = docs.slice(i, i + chunkSize);
-      console.log('chunk', i, chunk);
-      await PineconeStore.fromDocuments(
-        index,
-        chunk,
-        embeddings,
-        'text',
-        PINECONE_NAME_SPACE,
-      );
+        const docs = await textSplitter.splitDocuments(rawDocs);
+        console.log('split docs', docs);
+
+        console.log('creating vector store...');
+        /*create and store the embeddings in the vectorStore*/
+        const embeddings = new OpenAIEmbeddings();
+        const index = pinecone.Index(PINECONE_INDEX_NAME); 
+        const namespace = path.basename(directory); // use the directory name as the namespace 
+
+        //embed the PDF documents
+
+        /* Pinecone recommends a limit of 100 vectors per upsert request to avoid errors*/
+        const chunkSize = 50;
+        for (let i = 0; i < docs.length; i += chunkSize) {
+          const chunk = docs.slice(i, i + chunkSize);
+          console.log('chunk', i, chunk);
+          await PineconeStore.fromDocuments(
+            index,
+            chunk,
+            embeddings,
+            'text',
+            namespace,
+          );
+        }
+
+        console.log(`File ${file} processed`);
+      }
     }
   } catch (error) {
-    console.log("error", error);
+    console.log('error', error);
     throw new Error('Failed to ingest your data');
   }
 };
 
 (async () => {
   await run();
-  console.log('ingestion complete');
+  console.log('completed ingestion of all PDF files in all directories');
 })();
+

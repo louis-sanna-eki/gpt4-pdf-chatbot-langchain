@@ -13,8 +13,11 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
+import { useRouter } from 'next/router';
 
 export default function Home() {
+  const nameSpace = useNameSpace()
+
   const [query, setQuery] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [sourceDocs, setSourceDocs] = useState<Document[]>([]);
@@ -27,7 +30,7 @@ export default function Home() {
   }>({
     messages: [
       {
-        message: 'Hi, what would you like to learn about this legal case?',
+        message: 'Hi, what would you like to learn?',
         type: 'apiMessage',
       },
     ],
@@ -84,6 +87,7 @@ export default function Home() {
         body: JSON.stringify({
           question,
           history,
+          nameSpace,
         }),
         signal: ctrl.signal,
         onmessage: (event) => {
@@ -165,7 +169,7 @@ export default function Home() {
       <Layout>
         <div className="mx-auto flex flex-col gap-4">
           <h1 className="text-2xl font-bold leading-[1.1] tracking-tighter text-center">
-            Chat With Your Legal Docs
+            {`Chat With Docs - ${nameSpace}`}
           </h1>
           <main className={styles.main}>
             <div className={styles.cloud}>
@@ -279,7 +283,7 @@ export default function Home() {
                     placeholder={
                       loading
                         ? 'Waiting for response...'
-                        : 'What is this legal case about?'
+                        : 'What are those docs about?'
                     }
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
@@ -318,4 +322,11 @@ export default function Home() {
       </Layout>
     </>
   );
+}
+
+function useNameSpace() {
+  const router = useRouter();
+  const { source } = router.query;
+  console.log("source", source)
+  return source;
 }
