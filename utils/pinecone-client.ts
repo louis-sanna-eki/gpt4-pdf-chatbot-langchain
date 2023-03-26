@@ -13,6 +13,7 @@ async function initPinecone() {
       environment: process.env.PINECONE_ENVIRONMENT ?? '', //this is in the dashboard
       apiKey: process.env.PINECONE_API_KEY ?? '',
     });
+    pinecone.projectName = "44e4bc2"; // see https://github.com/mayooear/gpt4-pdf-chatbot-langchain/issues/60#issuecomment-1484126115
 
     return pinecone;
   } catch (error) {
